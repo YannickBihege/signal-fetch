@@ -1,0 +1,46 @@
+name: signal-fetch
+
+on:
+  schedule:
+    # Every Monday at 07:00 UTC (09:00 Frankfurt time)
+    - cron: '0 7 * * 1'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Fetch snapshot (JSON)
+        env:
+          ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
+        run: ./target/release/signal-fetch --json > snapshot.json
+
+      - name: Upload snapshot artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: signal-snapshot-${{ github.run_id }}
+          path: snapshot.json
+          retention-days: 30
+
+      - name: Print table (for CI logs)
+        env:
+          ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
+        run: ./target/release/signal-fetch
