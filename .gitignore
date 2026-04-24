@@ -1,2 +1,5 @@
 /target
-.envtarget/
+target/
+.env
+data.json
+drafts/
