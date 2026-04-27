@@ -8,6 +8,10 @@ description = "Fetch price, RSI, and gold-denominated values for The Signal news
 name = "signal-fetch"
 path = "src/main.rs"
 
+[[bin]]
+name = "signal-draft"
+path = "src/draft.rs"
+
 [dependencies]
 reqwest = { version = "0.12", features = ["json", "blocking"] }
 serde = { version = "1.0", features = ["derive"] }

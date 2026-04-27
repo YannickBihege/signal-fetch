@@ -28,9 +28,8 @@ const DEFAULT_TICKERS: &[(&str, &str)] = &[
     ("OKLO", "OKLO"),
 ];
 
-// Gold spot via the physical gold ETF proxy on Alpha Vantage
-// XAUUSD is available as a forex pair on Alpha Vantage
-const GOLD_SYMBOL: &str = "XAUUSD";
+// Gold spot via goldapi.io (free tier — https://www.goldapi.io)
+// EUR/USD via frankfurter.app (no key required — https://www.frankfurter.app)
 
 // ── Alpha Vantage response types ─────────────────────────────────────────────
 
@@ -44,10 +43,6 @@ struct GlobalQuote {
 struct QuoteData {
     #[serde(rename = "05. price")]
     price: String,
-    #[serde(rename = "02. open")]
-    open: String,
-    #[serde(rename = "09. change")]
-    change: String,
     #[serde(rename = "10. change percent")]
     change_percent: String,
 }
@@ -65,15 +60,13 @@ struct RsiPoint {
 }
 
 #[derive(Deserialize)]
-struct ForexResponse {
-    #[serde(rename = "Realtime Currency Exchange Rate")]
-    exchange_rate: ForexData,
+struct GoldApiResponse {
+    price: f64,
 }
 
 #[derive(Deserialize)]
-struct ForexData {
-    #[serde(rename = "5. Exchange Rate")]
-    rate: String,
+struct FrankfurterResponse {
+    rates: HashMap<String, f64>,
 }
 
 // ── Output types ─────────────────────────────────────────────────────────────
@@ -103,13 +96,15 @@ struct SignalSnapshot {
 
 struct AlphaVantage {
     api_key: String,
+    gold_api_key: String,
     client: reqwest::blocking::Client,
 }
 
 impl AlphaVantage {
-    fn new(api_key: String) -> Self {
+    fn new(api_key: String, gold_api_key: String) -> Self {
         Self {
             api_key,
+            gold_api_key,
             client: reqwest::blocking::Client::new(),
         }
     }
@@ -138,7 +133,12 @@ impl AlphaVantage {
             .price
             .parse::<f64>()
             .context("Failed to parse price")?;
-        let change_pct = resp.global_quote.change_percent.trim_end_matches('%').to_string();
+        let raw = resp.global_quote.change_percent.trim_end_matches('%');
+        let change_pct = if raw.starts_with('-') {
+            raw.to_string()
+        } else {
+            format!("+{}", raw)
+        };
 
         Ok((price, change_pct))
     }
@@ -162,7 +162,7 @@ impl AlphaVantage {
         let rsi = resp
             .technical_analysis
             .iter()
-            .max_by_key(|(date, _)| date.clone())
+            .max_by_key(|(date, _)| *date)
             .and_then(|(_, point)| point.rsi.parse::<f64>().ok())
             .context("No RSI data found")?;
 
@@ -170,44 +170,34 @@ impl AlphaVantage {
     }
 
     fn fetch_gold_usd(&self) -> Result<f64> {
-        // Alpha Vantage forex endpoint for XAU/USD
-        let url = format!(
-            "{}?function=CURRENCY_EXCHANGE_RATE&from_currency=XAU&to_currency=USD&apikey={}",
-            self.base_url(),
-            self.api_key
-        );
-        let resp: ForexResponse = self
+        // goldapi.io — free tier, 100 req/month
+        let resp: GoldApiResponse = self
             .client
-            .get(&url)
+            .get("https://www.goldapi.io/api/XAU/USD")
+            .header("x-access-token", &self.gold_api_key)
+            .header("Content-Type", "application/json")
             .send()
             .context("HTTP request failed")?
             .json()
             .context("Failed to parse gold response")?;
 
-        resp.exchange_rate
-            .rate
-            .parse::<f64>()
-            .context("Failed to parse gold rate")
+        Ok(resp.price)
     }
 
     fn fetch_eurusd(&self) -> Result<f64> {
-        let url = format!(
-            "{}?function=CURRENCY_EXCHANGE_RATE&from_currency=EUR&to_currency=USD&apikey={}",
-            self.base_url(),
-            self.api_key
-        );
-        let resp: ForexResponse = self
+        // frankfurter.app — completely free, no key required
+        let resp: FrankfurterResponse = self
             .client
-            .get(&url)
+            .get("https://api.frankfurter.app/latest?from=EUR&to=USD")
             .send()
             .context("HTTP request failed")?
             .json()
             .context("Failed to parse EUR/USD response")?;
 
-        resp.exchange_rate
-            .rate
-            .parse::<f64>()
-            .context("Failed to parse EUR/USD rate")
+        resp.rates
+            .get("USD")
+            .copied()
+            .context("USD rate not found in response")
     }
 }
 
@@ -271,7 +261,10 @@ fn main() -> Result<()> {
     let api_key = std::env::var("ALPHA_VANTAGE_API_KEY")
         .context("ALPHA_VANTAGE_API_KEY not set. Add it to .env or set it as an env var.")?;
 
-    let av = AlphaVantage::new(api_key);
+    let gold_api_key = std::env::var("GOLD_API_KEY")
+        .context("GOLD_API_KEY not set. Get a free key at https://www.goldapi.io and add it to .env.")?;
+
+    let av = AlphaVantage::new(api_key, gold_api_key);
 
     // Determine tickers to fetch
     let tickers: Vec<(String, String)> = if let Some(custom) = cli.tickers {
@@ -297,7 +290,9 @@ fn main() -> Result<()> {
         eprintln!("Fetching {} ({})...", ticker, name);
 
         let (price_usd, change_pct) = av.fetch_price(ticker)?;
+        std::thread::sleep(std::time::Duration::from_secs(13));
         let rsi = av.fetch_rsi(ticker)?;
+        std::thread::sleep(std::time::Duration::from_secs(13));
 
         let price_eur = price_usd / eurusd;
         let oz_of_gold = price_usd / gold_usd;

@@ -31,6 +31,7 @@ jobs:
       - name: Fetch snapshot (JSON)
         env:
           ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
+          GOLD_API_KEY: ${{ secrets.GOLD_API_KEY }}
         run: ./target/release/signal-fetch --json > snapshot.json
 
       - name: Upload snapshot artifact
@@ -43,4 +44,19 @@ jobs:
       - name: Print table (for CI logs)
         env:
           ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
+          GOLD_API_KEY: ${{ secrets.GOLD_API_KEY }}
         run: ./target/release/signal-fetch
+
+      - name: Run signal-draft
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          cp snapshot.json data.json
+          ./target/release/signal-draft
+
+      - name: Commit and push draft
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add drafts/
+          git diff --cached --quiet || (git commit -m "draft: newsletter $(date -u +%Y-%m-%d)" && git push)

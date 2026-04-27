@@ -1,0 +1,58 @@
+{
+  "timestamp": "2026-04-24 23:37 UTC",
+  "gold_spot_usd": 4709.255,
+  "gold_spot_eur": 4020.880293715847,
+  "eurusd_rate": 1.1712,
+  "positions": [
+    {
+      "ticker": "TSM",
+      "name": "TSMC",
+      "price_usd": 402.46,
+      "price_eur": 343.6304644808743,
+      "oz_of_gold": 0.08546150081063777,
+      "rsi_14": 68.3589,
+      "zone": "HOLD",
+      "change_percent": "+5.1743"
+    },
+    {
+      "ticker": "NVDA",
+      "name": "NVIDIA",
+      "price_usd": 208.27,
+      "price_eur": 177.8261612021858,
+      "oz_of_gold": 0.044225679008675474,
+      "rsi_14": 71.4983,
+      "zone": "NO ENTRY",
+      "change_percent": "+4.3228"
+    },
+    {
+      "ticker": "AMD",
+      "name": "AMD",
+      "price_usd": 347.81,
+      "price_eur": 296.9689207650273,
+      "oz_of_gold": 0.07385669283145635,
+      "rsi_14": 88.9449,
+      "zone": "NO ENTRY",
+      "change_percent": "+13.9128"
+    },
+    {
+      "ticker": "ASML",
+      "name": "ASML",
+      "price_usd": 1457.7,
+      "price_eur": 1244.6209016393443,
+      "oz_of_gold": 0.3095394069762627,
+      "rsi_14": 54.7468,
+      "zone": "HOLD",
+      "change_percent": "+2.8142"
+    },
+    {
+      "ticker": "OKLO",
+      "name": "OKLO",
+      "price_usd": 71.0,
+      "price_eur": 60.62158469945355,
+      "oz_of_gold": 0.015076694721351891,
+      "rsi_14": 61.1015,
+      "zone": "HOLD",
+      "change_percent": "-7.1410"
+    }
+  ]
+}
